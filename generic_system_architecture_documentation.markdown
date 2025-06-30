@@ -17,6 +17,7 @@
     - [5. `crowdfunding.ak`](#5-crowdfundingak)
     - [6. `identification_nft.ak`](#6-identification_nftak)
     - [7. `marketplace.ak`](#7-marketplaceak)
+    - [8. `dao.ak`](#8-daoak)
 - [Flow](#flow)
   - [Detailed Workflow](#detailed-workflow)
   - [Flowchart](#flowchart)
@@ -48,6 +49,7 @@ Designed for flexibility, this architecture can be adapted to various domains, s
   - `crowdfunding.ak`: Manages crowdfunding campaigns.
   - `identification_nft.ak`: Mints/burns identification NFTs.
   - `marketplace.ak`: Handles marketplace trading with royalties.
+  - `dao.ak`: Manages governance proposals, voting, and execution for decentralized decision-making.
 - **aiken.toml**: System configuration with dependencies.
 - **README.md**: Instructions for building, testing, and documentation.
 - **.github/workflows/continuous-integration.yml**: CI pipeline.
@@ -150,6 +152,22 @@ Designed for flexibility, this architecture can be adapted to various domains, s
   - **Withdraw**: Seller withdraws funds.
 - **Logic**: Ensures correct payouts and signatures.
 
+#### 8. `dao.ak`
+
+- **Purpose**: Manages the lifecycle of governance proposals in a Decentralized Autonomous Organization (DAO), enabling proposal submission, voting, execution, and rejection.
+- **Actions**:
+  - **SubmitProposal**: Creates a new proposal with a unique NFT, requiring the proposer’s signature.
+  - **VoteProposal**: Allows authorized voters to cast votes (`Yes`, `No`, `Abstain`) before the proposal’s deadline.
+  - **ExecuteProposal**: Executes approved proposals (e.g., updating platform fees) after the voting deadline, requiring more `Yes` than `No` votes.
+  - **RejectProposal**: Rejects proposals with more `No` than `Yes` votes after the deadline.
+- **Logic**:
+  - Proposals are represented by `GovernanceDatum`, storing proposal ID, submitter, action, votes, vote counts, deadline, and state (`InProgress`, `Executed`, `Rejected`).
+  - Uses an NFT (policy ID from `ConfigDatum`) to track proposal UTxOs.
+  - Voting requires the voter to be in the `ConfigDatum`’s voter list, with no prior vote cast.
+  - Execution updates the `ConfigDatum` (e.g., fee changes) and transitions the proposal to `Executed`.
+  - Rejection transitions the proposal to `Rejected` if `No` votes exceed `Yes` votes.
+- **Redeemer**: `GovernanceRedeemer` (`SubmitProposal`, `VoteProposal`, `ExecuteProposal`, `RejectProposal`).
+
 ## Flow
 
 The system orchestrates a workflow for token management, project validation, crowdfunding, and trading. Below is a detailed explanation, followed by a flowchart.
@@ -208,6 +226,12 @@ The system orchestrates a workflow for token management, project validation, cro
    - **Release**: Releases funds per milestone, updating milestone status.
    - State transitions are validated with signatures.
 
+7. **DAO Governance**:
+   - **Proposal Submission**: A voter submits a proposal via `dao.ak`’s minting policy, creating a proposal NFT and `GovernanceDatum`.
+   - **Voting**: Authorized voters cast votes (`Yes`, `No`, `Abstain`) before the deadline, updating the `GovernanceDatum`.
+   - **Execution/Rejection**: After the deadline, proposals with more `Yes` votes are executed (e.g., updating platform fees), while those with more `No` votes are rejected. The proposal NFT tracks the UTxO.
+   - Configuration is referenced via the identification NFT.
+
 ### Flowchart
 
 ```mermaid
@@ -224,6 +248,10 @@ graph TD
     K[Initiator Starts Crowdfunding<br>crowdfunding] --> L[Backers Support]
     L --> M[Cancel/Finish/Refund/Release]
     M -->|Release| N[Pay Creator per Milestone]
+        O[Voter Submits Proposal<br>dao] -->|Mints Proposal NFT| P[Vote on Proposal]
+    P -->|After Deadline| Q{Outcome}
+    Q -->|Yes > No| R[Execute Proposal<br>Update Config]
+    Q -->|No > Yes| S[Reject Proposal]
 ```
 
 ## Glossary
@@ -241,6 +269,11 @@ graph TD
 - **Redeemer**: Specifies validator actions (e.g., `Mint`, `Burn`, `Buy`, `Support`).
 - **Royalty**: A 3% fee paid to the platform in marketplace transactions.
 - **Milestone**: A boolean list in `CampaignDatum` tracking crowdfunding progress.
+- **GovernanceDatum**: Stores DAO proposal details (ID, submitter, action, votes, vote counts, deadline, state).
+- **Proposal NFT**: A unique NFT representing a DAO proposal, used to track its UTxO.
+- **ProposalAction**: Defines the action of a DAO proposal (e.g., `FeeAmountUpdate` for updating platform fees).
+- **ProposalState**: The state of a DAO proposal (`InProgress`, `Executed`, `Rejected`).
+- **VotesCount**: Tracks the number of `Yes`, `No`, and `Abstain` votes for a proposal.
 
 ## Use Case Examples
 
@@ -255,6 +288,7 @@ graph TD
   - **Reconciliation**: Retailers burn asset and credit tokens to confirm sale of certified products.
   - **Marketplace**: Suppliers trade credit tokens for premium pricing.
   - **Crowdfunding**: Fund new sustainable farming initiatives.
+  - **DAO Governance**: Suppliers propose and vote on new certification standards or fee adjustments, executed via dao.ak if approved.
 - **Example**:
   - A supplier submits batch #123 (`ProjectDatum`: category "organic").
   - Certifiers approve, minting 1000 credit tokens.
@@ -272,6 +306,7 @@ graph TD
   - **Reconciliation**: Collectors burn asset and credit tokens to retire limited editions.
   - **Marketplace**: Trade collectibles with royalties to the platform.
   - **Crowdfunding**: Fund collaborative art projects.
+  - **DAO Governance**: Artists and collectors vote on platform fee changes or new art categories, executed via dao.ak.
 - **Example**:
   - An artist submits a digital painting (`ProjectDatum`: category "art").
   - Curators approve, minting 100 credit tokens (NFTs).
@@ -289,6 +324,7 @@ graph TD
   - **Reconciliation**: Customers burn asset and credit tokens to redeem rewards.
   - **Marketplace**: Trade loyalty points among customers.
   - **Crowdfunding**: Fund community initiatives (e.g., charity drives).
+  - **DAO Governance**: Retailers and customers vote on reward program rules or charity funding allocations, executed via dao.ak.
 - **Example**:
   - A retailer submits a campaign (`ProjectDatum`: category "loyalty").
   - Admins approve, minting 10,000 credit tokens.
