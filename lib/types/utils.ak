@@ -32,3 +32,59 @@ pub type Multisig {
   /// A list of the verification key hashes of the authorized signers.
   signers: List<VerificationKeyHash>,
 }
+
+// ---- DAO UTILS
+// utils
+/// Represents the possible states of a governance proposal.
+pub type ProposalState {
+  /// The proposal is currently active and open for voting.
+  InProgress
+  /// The proposal has been successfully executed.
+  Executed
+  /// The proposal has been rejected.
+  Rejected
+}
+
+/// A type alias for `VerificationKeyHash` to represent a voter's identity.
+pub type Voter =
+  VerificationKeyHash
+
+/// A record to store the count of votes for a proposal.
+pub type VotesCount {
+  /// The number of 'Yes' votes.
+  yes: Int,
+  /// The number of 'No' votes.
+  no: Int,
+  /// The number of 'Abstain' votes.
+  abstain: Int,
+}
+
+/// Represents the possible voting options for a governance proposal.
+pub type Vote {
+  /// A vote in favor of the proposal.
+  Yes
+  /// A vote against the proposal.
+  No
+  /// A vote to abstain from the decision.
+  Abstain
+  /// A placeholder state for a vote that has not yet been cast.
+  Pending
+}
+
+/// Defines the possible actions that can be taken through a governance proposal.
+pub type ProposalAction {
+  /// Update the platform's fee amount.
+  FeeAmountUpdate(Int)
+  /// add new action in similar way
+  /// Action(UpdatedValue)
+  DaoAction(VerificationKeyHash)
+}
+
+/// A type alias for a dictionary that maps voters to their votes on a proposal.
+pub type VotesStruct {
+  voter: Voter,
+  vote: Vote,
+}
+
+pub type Votes =
+  List<VotesStruct>

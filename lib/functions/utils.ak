@@ -11,11 +11,12 @@ use cardano/transaction.{
 use cardano/value
 use constants
 use types/datum.{
-  BackerDatum, CampaignDatum, CampaignState, ConfigDatum, Milestone,
-  ProjectDatum,
+  BackerDatum, CampaignDatum, CampaignState, ConfigDatum, GovernanceDatum,
+  Milestone, ProjectDatum,
 }
 use types/token.{Token}
-use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash}
+use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash, Vote, Voter, Votes}
+use validation/find
 use validation/payout
 
 /// Checks if a given project category is present in the list of supported categories.
@@ -76,6 +77,28 @@ pub fn ref_datum_by_nft(
   tkn: AssetName,
 ) -> ConfigDatum {
   let datum_data = input_datum_by_nft(inputs, pid, tkn)
+  if datum_data is datum: ConfigDatum {
+    datum
+  } else {
+    fail @"Datum Type did not Match ConfigDatum On Input"
+  }
+}
+
+/// Finds and returns the `ConfigDatum` from a transaction output that contains a specific NFT.
+///
+/// # Arguments
+/// * `outputs` - The list of transaction outputs to search.
+/// * `pid` - The policy ID of the identification NFT.
+/// * `tkn` - The asset name of the identification NFT.
+///
+/// # Returns
+/// The `ConfigDatum` found in the output. Fails if not found or if the datum type is incorrect.
+pub fn output_ref_datum_by_nft(
+  outputs: List<Output>,
+  pid: PolicyId,
+  tkn: AssetName,
+) -> ConfigDatum {
+  let datum_data = find.output_datum_by_nft(outputs, pid, tkn)
   if datum_data is datum: ConfigDatum {
     datum
   } else {
@@ -643,4 +666,70 @@ fn calculate_payout_platform_creator(amount: Int) -> (Int, Int) {
   let platform = amount * 5 / 100
   let seller = amount - platform
   (platform, seller)
+}
+
+/// Finds and returns the first transaction output that contains a specific NFT.
+///
+/// # Arguments
+/// * `outputs` - The list of outputs to search.
+/// * `pid` - The policy ID of the NFT.
+/// * `tkn` - The asset name of the NFT.
+///
+/// # Returns
+/// The first `Output` that contains the specified NFT. Fails if no such output is found.
+pub fn output_by_nft(
+  outputs: List<Output>,
+  pid: PolicyId,
+  tkn: AssetName,
+) -> Output {
+  when outputs is {
+    [output, ..rest] ->
+      if value.prove_exact_nft(output.value, pid, tkn) {
+        output
+      } else {
+        output_by_nft(rest, pid, tkn)
+      }
+    [] -> fail @"No Output Found In Outputs"
+  }
+}
+
+/// Extracts and returns a `GovernanceDatum` from a generic `Data` object.
+///
+/// # Arguments
+/// * `data` - The `Data` object to be converted.
+///
+/// # Returns
+/// A `GovernanceDatum` if the conversion is successful. Fails if the `Data` does not match the `GovernanceDatum` structure.
+pub fn governance_datum_from_data(data: Data) -> GovernanceDatum {
+  expect GovernanceDatum {
+    proposal_id,
+    submitted_by,
+    proposal_action,
+    votes,
+    votes_count,
+    deadline,
+    proposal_state,
+  } = data
+  GovernanceDatum {
+    proposal_id,
+    submitted_by,
+    proposal_action,
+    votes,
+    votes_count,
+    deadline,
+    proposal_state,
+  }
+}
+
+// ---
+pub fn get_vote(votes: Votes, voter: Voter) -> Vote {
+  when votes is {
+    [vote, ..rest] ->
+      if vote.voter == voter {
+        vote.vote
+      } else {
+        get_vote(rest, voter)
+      }
+    [] -> fail @"No Votes Found"
+  }
 }

@@ -1,5 +1,8 @@
 use cardano/assets.{PolicyId}
-use types/utils.{AssetClass, Multisig}
+use types/moment.{Moment}
+use types/utils.{
+  AssetClass, Multisig, ProposalAction, ProposalState, Voter, Votes, VotesCount,
+}
 use types/wallet.{Wallet}
 
 /// The main configuration datum for the entire protocol.
@@ -22,6 +25,8 @@ pub type ConfigDatum {
   asset_policy_id: PolicyId,
   /// The policy ID of the Credit Token.
   credit_policy_id: PolicyId,
+  /// The wallet address for the DAO.
+  dao_policyid: PolicyId,
 }
 
 /// The datum for a project submitted for validation.
@@ -105,3 +110,22 @@ pub type CampaignDatum {
 /// The datum for a campaign backer, represented by their wallet.
 pub type BackerDatum =
   Wallet
+
+// -----DAO DATUM
+/// The datum for a governance proposal.
+pub type GovernanceDatum {
+  /// A unique identifier for the proposal.
+  proposal_id: ByteArray,
+  /// The voter who submitted the proposal.
+  submitted_by: Voter,
+  /// The action to be taken if the proposal is approved.
+  proposal_action: ProposalAction,
+  /// A dictionary mapping voters to their votes.
+  votes: Votes,
+  /// A count of the 'Yes', 'No', and 'Abstain' votes.
+  votes_count: VotesCount,
+  /// The deadline for voting on the proposal.
+  deadline: Moment,
+  /// The current state of the proposal (e.g., InProgress, Executed, Rejected).
+  proposal_state: ProposalState,
+}
